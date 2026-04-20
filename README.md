@@ -104,6 +104,10 @@ Build source and wheel distributions:
 uv build
 ```
 
+## Acknowledgements
+
+This project was developed with assistance from GPT-5.4 and GPT-5.4-Mini.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
