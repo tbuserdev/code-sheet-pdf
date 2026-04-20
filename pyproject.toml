@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-sheet-pdf"
+version = "0.1.0"
+description = "Create a one-page A4 PDF with three highlighted source columns."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "tbuser.dev", email = "hello@tbuser.dev" },
+]
+license = { file = "LICENSE" }
+keywords = ["pdf", "code", "cli", "highlighting", "c"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Code Generators",
+  "Topic :: Utilities",
+]
+dependencies = [
+  "pygments>=2.19",
+  "reportlab>=4.0",
+  "pypdf>=5.0",
+]
+
+[project.scripts]
+code-sheet-pdf = "code_sheet_pdf.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
