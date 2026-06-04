@@ -5,20 +5,25 @@ from pathlib import Path
 from typing import Sequence
 
 from .preview import serve_preview
-from .render import ToolError, render_pdf
+from .render import COLUMNS_PER_PAGE, ToolError, render_pdf
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="code-sheet-pdf",
-        description="Render three text files as a highlighted A4 PDF.",
+        description=(
+            "Render text files as highlighted A4 PDF pages with three columns per page."
+        ),
     )
     parser.add_argument(
         "inputs",
-        nargs=3,
+        nargs="+",
         type=Path,
         metavar="SOURCE",
-        help="Three source files.",
+        help=(
+            f"Source files in groups of {COLUMNS_PER_PAGE}; "
+            f"for example, {COLUMNS_PER_PAGE * 2} files render as two pages."
+        ),
     )
     parser.add_argument(
         "-o",

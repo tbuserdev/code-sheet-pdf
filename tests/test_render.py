@@ -8,6 +8,7 @@ from pygments.token import Token
 
 from code_sheet_pdf.render import (
     COLUMN_GAP_MM,
+    COLUMNS_PER_PAGE,
     FONT_NAME,
     FONT_SIZE,
     MAX_LINE_HEIGHT,
@@ -23,6 +24,7 @@ from code_sheet_pdf.render import (
 def test_layout_constants_match_spec():
     assert MARGIN_MM == 7.5
     assert COLUMN_GAP_MM == 5
+    assert COLUMNS_PER_PAGE == 3
     assert FONT_NAME == "Courier New"
     assert FONT_SIZE == 10
     assert MAX_LINE_HEIGHT == 17.5
@@ -87,6 +89,20 @@ def test_render_pdf_creates_single_page(tmp_path: Path):
     assert len(reader.pages) == 1
 
 
+def test_render_pdf_creates_two_pages_from_six_columns(tmp_path: Path):
+    files = []
+    for index in range(6):
+        path = tmp_path / f"col{index + 1}.txt"
+        path.write_text(f"int value_{index + 1} = {index + 1};\n", encoding="utf-8")
+        files.append(path)
+
+    out = tmp_path / "out" / "code-sheet-pdf.pdf"
+    render_pdf(files, out)
+
+    reader = PdfReader(str(out))
+    assert len(reader.pages) == 2
+
+
 def test_preview_html_refreshes(tmp_path: Path):
     a = tmp_path / "a.txt"
     b = tmp_path / "b.txt"
@@ -99,3 +115,14 @@ def test_preview_html_refreshes(tmp_path: Path):
     assert 'meta http-equiv="refresh" content="1"' in html
     assert 'style="color: #953800">int</span>' in html
     assert 'style="color: #0550ae">1</span>' in html
+
+
+def test_preview_html_creates_page_per_three_columns(tmp_path: Path):
+    files = []
+    for index in range(6):
+        path = tmp_path / f"col{index + 1}.txt"
+        path.write_text(f"int value_{index + 1} = {index + 1};\n", encoding="utf-8")
+        files.append(path)
+
+    html = build_preview_html(files)
+    assert html.count('<main class="page">') == 2

@@ -1,13 +1,14 @@
 # code-sheet-pdf
 
-Create a compact one-page A4 PDF from three source files.
+Create compact A4 PDF pages from source files.
 
-`code-sheet-pdf` is a small command-line tool for turning code snippets into a print-friendly PDF with three highlighted columns. It is useful for cheat sheets, exam notes, handouts, and any situation where a dense but readable code sheet matters.
+`code-sheet-pdf` is a small command-line tool for turning code snippets into a print-friendly PDF with three highlighted columns per page. It is useful for cheat sheets, exam notes, handouts, and any situation where a dense but readable code sheet matters.
 
 ## Features
 
-- One-page A4 PDF output
-- Exactly three source columns
+- A4 PDF output
+- Three source columns per page
+- Multiple pages from inputs in groups of three
 - C syntax highlighting with GitHub-style colors
 - Fixed Courier New layout
 - Automatic line wrapping per column
@@ -32,33 +33,39 @@ uv sync
 
 ## Usage
 
-Render three files into a PDF:
+Render three files into a one-page PDF:
 
 ```bash
 uv run code-sheet-pdf examples/col1.txt examples/col2.txt examples/col3.txt -o output/pdf/code-sheet-pdf.pdf
 ```
 
+Render six files into a two-page PDF:
+
+```bash
+uv run code-sheet-pdf page1-col1.txt page1-col2.txt page1-col3.txt page2-col1.txt page2-col2.txt page2-col3.txt -o output/pdf/code-sheet-pdf.pdf
+```
+
 Open a browser preview while writing:
 
 ```bash
-uv run code-sheet-pdf examples/col1.txt examples/col2.txt examples/col3.txt -o output/pdf/code-sheet-pdf.pdf --preview
+uv run code-sheet-pdf examples/page1-col1.txt examples/page1-col2.txt examples/page1-col3.txt examples/page2-col1.txt examples/page2-col2.txt examples/page2-col3.txt -o output/pdf/code-sheet-pdf.pdf --preview
 ```
 
 Run as a Python module:
 
 ```bash
-uv run python -m code_sheet_pdf examples/col1.txt examples/col2.txt examples/col3.txt -o output/pdf/code-sheet-pdf.pdf
+uv run python -m code_sheet_pdf page1-col1.txt page1-col2.txt page1-col3.txt page2-col1.txt page2-col2.txt page2-col3.txt -o output/pdf/code-sheet-pdf.pdf
 ```
 
 ## CLI
 
 ```text
-usage: code-sheet-pdf SOURCE SOURCE SOURCE -o OUTPUT [--preview]
+usage: code-sheet-pdf SOURCE [SOURCE ...] -o OUTPUT [--preview]
 ```
 
 Arguments:
 
-- `SOURCE SOURCE SOURCE`: three source text files
+- `SOURCE [SOURCE ...]`: source text files in groups of three
 - `-o, --output`: output PDF path
 - `--preview`: open a local browser preview with auto-refresh
 
@@ -78,8 +85,7 @@ If the wrapped content does not fit on one page, the command exits with an error
 ## Limitations
 
 - Highlighting currently targets C source code.
-- The layout always expects three input files.
-- Output is limited to one A4 page.
+- The layout expects input files in groups of three.
 - The font path is macOS-specific.
 
 These limits are deliberate for the current version and keep output predictable.

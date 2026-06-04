@@ -21,6 +21,7 @@ MIN_LINE_HEIGHT = 11
 MAX_LINE_HEIGHT = FONT_SIZE * 1.75
 MARGIN_MM = 7.5
 COLUMN_GAP_MM = 5
+COLUMNS_PER_PAGE = 3
 GITHUB_LIGHT_DEFAULT_BG = HexColor("#ffffff")
 GITHUB_LIGHT_DEFAULT_FG = HexColor("#1f2328")
 GITHUB_LIGHT_DEFAULT_KEYWORD = HexColor("#cf222e")
@@ -112,7 +113,17 @@ class BracketState:
     depth: int = 0
 
 
+@dataclass(frozen=True)
+class PageLayout:
+    page_width: float
+    page_height: float
+    margin: float
+    gap: float
+    column_width: float
+
+
 def render_pdf(input_files: list[Path] | tuple[Path, ...], output_file: Path) -> None:
+    validate_column_count(len(input_files))
     columns = [_read_source(path) for path in input_files]
     ensure_font()
 
@@ -120,12 +131,49 @@ def render_pdf(input_files: list[Path] | tuple[Path, ...], output_file: Path) ->
     canvas = Canvas(str(output_file), pagesize=A4)
     canvas.setTitle("code-sheet-pdf")
 
+    layout = page_layout()
+    max_chars = max(1, int(layout.column_width // char_width()))
+
+    for page_columns in chunk_columns(columns):
+        render_page(canvas, page_columns, max_chars, layout)
+        canvas.showPage()
+
+    canvas.save()
+
+
+def validate_column_count(column_count: int) -> None:
+    if column_count == 0 or column_count % COLUMNS_PER_PAGE != 0:
+        raise ToolError(
+            f"Expected input files in groups of {COLUMNS_PER_PAGE}; got {column_count}."
+        )
+
+
+def chunk_columns(columns: list[SourceColumn]) -> list[list[SourceColumn]]:
+    return [
+        columns[index : index + COLUMNS_PER_PAGE]
+        for index in range(0, len(columns), COLUMNS_PER_PAGE)
+    ]
+
+
+def page_layout() -> PageLayout:
     page_width, page_height = A4
     margin = MARGIN_MM * mm
     gap = COLUMN_GAP_MM * mm
-    usable_width = page_width - (2 * margin) - (2 * gap)
-    column_width = usable_width / 3
-    max_chars = max(1, int(column_width // char_width()))
+    usable_width = page_width - (2 * margin) - ((COLUMNS_PER_PAGE - 1) * gap)
+    column_width = usable_width / COLUMNS_PER_PAGE
+    return PageLayout(page_width, page_height, margin, gap, column_width)
+
+
+def render_page(
+    canvas: Canvas,
+    columns: list[SourceColumn],
+    max_chars: int,
+    layout: PageLayout,
+) -> None:
+    page_height = layout.page_height
+    margin = layout.margin
+    gap = layout.gap
+    column_width = layout.column_width
     wrapped_columns = [wrap_source(column.code, max_chars) for column in columns]
     max_lines = max(len(lines) for lines in wrapped_columns)
     max_lines_capacity = int(
@@ -138,17 +186,12 @@ def render_pdf(input_files: list[Path] | tuple[Path, ...], output_file: Path) ->
     line_height = compute_line_height(page_height, margin, max_lines)
 
     column_xs = [
-        margin,
-        margin + column_width + gap,
-        margin + (2 * column_width) + (2 * gap),
+        margin + (index * (column_width + gap)) for index in range(COLUMNS_PER_PAGE)
     ]
     top_y = page_height - margin - FONT_SIZE
 
-    for index, (column, lines) in enumerate(zip(columns, wrapped_columns, strict=True)):
+    for index, (_column, lines) in enumerate(zip(columns, wrapped_columns, strict=True)):
         draw_column(canvas, column_xs[index], top_y, lines, line_height)
-
-    canvas.showPage()
-    canvas.save()
 
 
 def compute_line_height(page_height: float, margin: float, max_lines: int) -> float:
@@ -310,19 +353,29 @@ def _read_source(path: Path) -> SourceColumn:
 
 
 def build_preview_html(input_files: list[Path] | tuple[Path, ...]) -> str:
+    validate_column_count(len(input_files))
     columns = [_read_source(path) for path in input_files]
     column_width = preview_column_width()
-    wrapped_columns = [wrap_source(column.code, column_width) for column in columns]
-    max_lines = max(len(lines) for lines in wrapped_columns)
-    line_height = compute_line_height(A4[1], MARGIN_MM * mm, max_lines)
-    rendered_columns = []
-    for lines in wrapped_columns:
-        rendered_columns.append(
-            '<section class="column"><pre>'
-            + "<br>".join(
-                "".join(render_text_run(run) for run in line) for line in lines
+    rendered_pages = []
+    for page_columns in chunk_columns(columns):
+        wrapped_columns = [
+            wrap_source(column.code, column_width) for column in page_columns
+        ]
+        max_lines = max(len(lines) for lines in wrapped_columns)
+        line_height = compute_line_height(A4[1], MARGIN_MM * mm, max_lines)
+        rendered_columns = []
+        for lines in wrapped_columns:
+            rendered_columns.append(
+                f'<section class="column" style="line-height: {line_height:.3f}pt"><pre>'
+                + "<br>".join(
+                    "".join(render_text_run(run) for run in line) for line in lines
+                )
+                + "</pre></section>"
             )
-            + "</pre></section>"
+        rendered_pages.append(
+            '<main class="page">'
+            + "".join(rendered_columns)
+            + "</main>"
         )
 
     return f"""<!doctype html>
@@ -333,19 +386,17 @@ def build_preview_html(input_files: list[Path] | tuple[Path, ...]) -> str:
     <title>code-sheet-pdf preview</title>
     <meta http-equiv="refresh" content="1">
     <style>
-      {preview_css(line_height)}
+      {preview_css()}
     </style>
   </head>
   <body>
-    <main class="page">
-      {"".join(rendered_columns)}
-    </main>
+    {"".join(rendered_pages)}
   </body>
 </html>
 """
 
 
-def preview_css(line_height: float) -> str:
+def preview_css() -> str:
     return f"""
       @font-face {{
         font-family: "{FONT_NAME}";
@@ -360,7 +411,10 @@ def preview_css(line_height: float) -> str:
       }}
       body {{
         display: flex;
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
+        gap: 16px;
         padding: 16px;
       }}
       .page {{
@@ -369,7 +423,7 @@ def preview_css(line_height: float) -> str:
         box-sizing: border-box;
         padding: 7.5mm;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat({COLUMNS_PER_PAGE}, minmax(0, 1fr));
         gap: 5mm;
         background: #fff;
         color: {GITHUB_LIGHT_DEFAULT_FG};
@@ -389,7 +443,7 @@ def preview_css(line_height: float) -> str:
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         word-break: break-word;
-        line-height: {line_height:.3f}pt;
+        line-height: inherit;
       }}
     """
 
@@ -398,8 +452,8 @@ def preview_column_width() -> int:
     page_width, _ = A4
     margin = MARGIN_MM * mm
     gap = COLUMN_GAP_MM * mm
-    usable_width = page_width - (2 * margin) - (2 * gap)
-    return max(1, int((usable_width / 3) // char_width()))
+    usable_width = page_width - (2 * margin) - ((COLUMNS_PER_PAGE - 1) * gap)
+    return max(1, int((usable_width / COLUMNS_PER_PAGE) // char_width()))
 
 
 def render_text_run(run: TextRun) -> str:

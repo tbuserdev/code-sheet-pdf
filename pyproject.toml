@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "code-sheet-pdf"
 version = "0.1.0"
-description = "Create a one-page A4 PDF with three highlighted source columns."
+description = "Create A4 PDF pages with three highlighted source columns per page."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
